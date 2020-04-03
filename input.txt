@@ -1,1 +1,1 @@
-aaabbbcdee
+this input file is for huffman tree algorithm
