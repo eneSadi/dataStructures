@@ -1,8 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
 
-#define COUNT 10 //Ağaç satır satır yazdırılırken arada bırakılacak boşluk sayısını tanımlar
-
 struct node{        //Struct yapımız
     char harf;       
     int frekans;
@@ -141,11 +139,11 @@ NODE* createHuffmanTree(NODE* head){
 
         NODE *current2 = current;            //Ara node'un gerekli left ve right pointer atamaları yapıldıktan sonra   
         NODE *prev = current2;               //doğru konuma yerleştirildiği kısım.
-        while(current2->next && (araNode->frekans > current2->frekans)){
+        while(current2->next && (araNode->frekans >= current2->frekans)){
             prev = current2;                 //Başa eklenemeyeceği için direkt araya yerleştirme için
             current2 = current2->next;       //doğru yer gerekli kontroller ile bulunur.
         }
-        if(araNode->frekans <= current2->frekans){
+        if(araNode->frekans < current2->frekans){
             prev->next = araNode;            //Araya eklenecek ise gerekli işlemler yapılır.
             araNode->next = current2;       
         }
@@ -159,35 +157,113 @@ NODE* createHuffmanTree(NODE* head){
     return head;
 }
 
-void print2D(NODE *root, int space){ 
-    //Recursive çağrıyı, uç düğüme gelindiği için, bitiren kontrol. 
-    if (root == NULL) 
-        return; 
-  
-    //Estetik görünüm için boşluk bırakılan kısım
-    space += COUNT; 
-  
-    //Right pointer üzerinden ilerleyerek önce ağacın sağ kısmı bastırılır
-    print2D(root->right, space);  
-    printf("\n"); 
-    for (int i = COUNT; i < space; i++){
-        printf(" "); 
-    }  
-    printf("(%d,%c)\n", root->frekans,root->harf); 
-  
-    //Left pointer üzerinden ilerleyerek ağacın sol kısmı bastırılır
-    print2D(root->left, space); 
-} 
-  
-//Recursive olarak yazılan asıl yazdırma fonksiyonuna gönderilecek elemana ulaşılan
-//ve o elemanı yazdırma fonksiyonuna gönderen çevreleyici (wrapper) fonksiyon.
-void print2Dimension(NODE *root){ 
-    NODE *current = root; 
-    while(current->next){       //Ağacın root'u listenin son elemanı olacağından
-       current = current->next; //ona ulaşılır ve fonksiyona gönderilir.
-    } 
-    print2D(current, 0); 
-} 
+//Kuyruk yapısını yalnızca ağaç şeklinde yazdırma işleminde kullandım.
+//Kuyruk yapısı için önceki haftalarda yazdığımız kodlar
+struct QNode{
+    NODE *node; //Kuyruk yapısında value olarak NODE tipinde değişken tutulur
+    struct QNode *next;
+};
+
+struct Queue{
+    struct QNode *front, *rare; //Kuyruk yapısının başını ve sonunu tutacak pointerları
+};                              //tutan struct yapısı
+
+struct Queue *createQueue(){
+    //Kuyruğun oluşturulduğu fonksiyon
+    struct Queue *q;
+    q = (struct Queue*)malloc(sizeof(struct Queue));
+    if(q == NULL){
+        exit(0);
+    }//Gerekli ilklendirmeler ve NULL atamaları yapılır
+    else{
+        q->front = q->rare = NULL;
+        return q;
+    }
+}
+//Kuyruğa yeni eleman eklemek için kullandığımız fonksiyon
+void enqueue(struct Queue *q, NODE *node){
+
+    struct QNode *tmp;
+    tmp = (struct QNode*)malloc(sizeof(struct QNode));
+    if(tmp == NULL){
+        exit(0);
+    }
+    tmp->node = node;
+    tmp->next = NULL;
+    if(q->front == NULL){
+        q->front = q->rare = tmp;
+    }
+    else{
+        q->rare->next = tmp;
+        q->rare = tmp;
+    }
+}
+//Kuyruktan eleman çıkartmak için kullandığımız fonksiyon
+NODE* dequeue(struct Queue *q){
+
+    NODE *node;
+    if(q->front == NULL){
+        printf("Queue is empty!\n");
+        return NULL;
+    }
+    else{
+        node = q->front->node;
+        struct QNode *tmp;
+        tmp = q->front;
+        q->front = tmp->next;
+        
+        if(q->front == NULL){
+            q->rare = NULL;
+        }
+        free(tmp);
+        
+        return node;
+    }
+}
+//Ağacın her levelini ayrı bir satıra bastıran fonksiyon
+void printLevelbyLevel(struct Queue *q, NODE *head){
+    
+    NODE *nullNode = (NODE*)malloc(sizeof(NODE));
+    nullNode->frekans = 0;      //Bu kısımda child'ı olmayan nodeların
+    nullNode->harf = '-';       //alt satırda karışıklık yaratmaması amacıyla
+    nullNode->right = NULL;     //olmayan çocukların yerine ' - ' sembolünün
+    nullNode->left = NULL;      //harf olarak atandığı bir node oluşturulur.
+
+    NODE *current = head; 
+    while(current->next){       //Ağacın kökü Huffman dizisinin son elemanı
+       current = current->next; //olduğundan, son elemana gelinir.
+    }
+
+    enqueue(q, current);        //Burada gerçekleştirilen algoritma;
+    enqueue(q, NULL);           //Öncelikle ağacın kökü ve bir NULL değer kuyruğa atılır.
+    current = dequeue(q);       //Sonrasında ilk atanan değer kuyruktan çekilir (yani root değeri)
+    while(current){                      //Yukarıda yapılanlardan sonra girilen while döngüsünde her tur
+        if(current->left){               //Current node'unun left ve right child'ları varsa kuyruğa atılır
+            enqueue(q, current->left);      
+        }
+        else if(current->harf != '-'){   //Yoksa nullNode kuyruğa atılır
+            enqueue(q, nullNode);
+        }
+        if(current->right){              //left için yapılanlar right için tekrarlanır
+            enqueue(q, current->right);
+        }
+        else if(current->harf != '-'){
+            enqueue(q, nullNode);
+        }
+        if(current->harf =='-'){        //Yazdırırken eğer nullNode ise sadece ' - ' yazdırılır
+            printf(" - ");
+        }
+        else{
+            printf("(%2d,%c) ",current->frekans,current->harf);
+        }                                //Değil ise current değişkeni ekrana yazdırılır
+        current = dequeue(q);            //Tekrar kuyruktan bir eleman alınır,
+        if(current == NULL){             //Eğer alınan değer NULL ise
+            enqueue(q, NULL);            //tekrar kuyruğun sonuna NULL değer atanır
+            printf("\n");                //Bir satır alta inilir
+            current = dequeue(q);        //ve kuyruktan bir eleman daha alınır
+        }                                //Bu şekilde current node NULL olana kadar yani kuyrukta eleman
+    }                                    //kalmayana kadar döngüye devam edilir.
+}
 
 int main(){
 
@@ -212,7 +288,9 @@ int main(){
     yazdir(head);
     
     printf("\n-----------------------TREE--------------------------------------------\n");
-    print2Dimension(head);          //Ağacın seviye seviye ekrana bastırılması
+    struct Queue *q;                //Yazdırma işleminde kullanılacak olan kuyruğun oluşturulması
+    q = createQueue();              
+    printLevelbyLevel(q,head);      //Satır satır yazdırma fonksiyonu
 
     return 0;
 }
